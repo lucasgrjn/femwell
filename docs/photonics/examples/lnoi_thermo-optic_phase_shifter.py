@@ -71,11 +71,17 @@ resolutions = {
 }
 
 # mesh = from_meshio(mesh_from_OrderedDict(polygons, resolutions, default_resolution_max=0.05))
+custom_colormap = {
+    "sio2": np.array((189, 189, 189)) / 255,
+    "air": np.array((189, 240, 255)) / 255,
+    "si": np.array((176, 174, 120)) / 255,
+    "tfln": np.array((0, 198, 255)) / 255,
+}
 
 fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 mesh = from_meshio(mesh_from_OrderedDict(polygons, resolutions))
 
-plot_domains(mesh, ax=axs[0])
+plot_domains(mesh, ax=axs[0], cmap_dict=custom_colormap)
 axs[0].set_title("Structure considered")
 
 
