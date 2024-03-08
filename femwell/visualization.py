@@ -16,6 +16,16 @@ def plot_subdomain_boundaries(mesh, ax=None):
 
 
 def plot_domains(mesh, ax=None, cmap_dict=None):
+    """Plots the different domains of the mesh.
+
+    Args:
+        mesh (skfem.mesh): Mesh to visualize.
+        ax (Axes, optional):
+        cmap_dict (dict[str, ((float, float, float))], optional): Dict with subdomains and its associated normalized RGB color.
+
+    Returns:
+        ax (Axes): Matplotlib axes used for the plot.
+    """
     if ax is None:
         fig, ax = plt.subplots()
         ax.set_aspect(1)
