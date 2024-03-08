@@ -15,7 +15,7 @@ def plot_subdomain_boundaries(mesh, ax=None):
     return ax
 
 
-def plot_domains(mesh, ax=None):
+def plot_domains(mesh, ax=None, cmap_dict=None):
     if ax is None:
         fig, ax = plt.subplots()
         ax.set_aspect(1)
@@ -23,11 +23,21 @@ def plot_domains(mesh, ax=None):
 
     subdomains = list(mesh.subdomains.keys() - {"gmsh:bounding_entities"})
     subdomain_colors = basis0.zeros() * np.NaN
-    for i, subdomain in enumerate(subdomains):
-        subdomain_colors[basis0.get_dofs(elements=subdomain)] = i
-
-    norm = matplotlib.colors.BoundaryNorm(np.arange(i + 2) - 0.5, ncolors=256)
-    ax = basis0.plot(subdomain_colors, plot_kwargs={"norm": norm}, ax=ax, cmap="rainbow")
-    plt.colorbar(ax.collections[-1], ticks=list(range(i + 1))).ax.set_yticklabels(subdomains)
+    if cmap_dict is not None:
+        plot_colors = []
+        for i, subdomain in enumerate(subdomains):
+            subdomain_colors[basis0.get_dofs(elements=subdomain)] = i / (len(subdomains) - 1)
+            plot_colors.append(cmap_dict[subdomain])
+        cmap = matplotlib.colors.ListedColormap(plot_colors)
+        ax = basis0.plot(subdomain_colors, ax=ax, cmap=cmap)
+        plt.colorbar(
+            ax.collections[-1], ticks=[(ic + 0.5) / (i + 1) for ic in range(i + 1)]
+        ).ax.set_yticklabels(subdomains)
+    else:
+        for i, subdomain in enumerate(subdomains):
+            subdomain_colors[basis0.get_dofs(elements=subdomain)] = i
+        norm = matplotlib.colors.BoundaryNorm(np.arange(i + 2) - 0.5, ncolors=256)
+        ax = basis0.plot(subdomain_colors, plot_kwargs={"norm": norm}, ax=ax, cmap="rainbow")
+        plt.colorbar(ax.collections[-1], ticks=list(range(i + 1))).ax.set_yticklabels(subdomains)
 
     return ax
