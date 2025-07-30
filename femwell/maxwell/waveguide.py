@@ -529,7 +529,7 @@ def compute_modes(
     num_modes=1,
     order=1,
     metallic_boundaries=False,
-    surface_impedances={},
+    surface_impedances: dict[str, complex] | None = None,
     radius=np.inf,
     n_guess=None,
     solver="scipy",
@@ -544,6 +544,8 @@ def compute_modes(
         num_modes (int, optional): Number of modes to compute. Defaults to 1.
         order (int, optional): Order of the basis functions. Defaults to 1.
         metallic_boundaries (bool, optional): If True, the boundaries are considered to be metallic. Defaults to False.
+        surface_impedances (tuple[str, complex], optional): If provided, adds a surface impedance boundary condition.
+            The tuple must contain the name of the boundary (str) and the complex impedance value Zs.
         radius (float, optional): Radius of the waveguide. Defaults to np.inf.
         n_guess (float, optional): Initial guess for the effective index. Defaults to None.
         solver (str, optional): Solver to use. Defaults to "scipy".
@@ -559,6 +561,7 @@ def compute_modes(
         raise ValueError("`solver` must either be `scipy` or `slepc`")
 
     k0 = 2 * np.pi / wavelength
+    Z0 = np.sqrt(scipy.constants.mu_0 / scipy.constants.epsilon_0)  # Free-space impedance
 
     if order == 1:
         element = ElementTriN1() * ElementTriP1()
@@ -586,8 +589,23 @@ def compute_modes(
     def bform(e_t, e_z, v_t, v_z, w):
         return -1 / mu_r * dot(e_t, v_t) / k0**2
 
+    # Surface Impedance BC
+    @BilinearForm(dtype=complex)
+    def sibc_form(e_t, e_z, v_t, v_z, w):
+        return (1j * k0 * Z0 / w.Zs) * dot(e_t, v_t)
+
     A = aform.assemble(basis, epsilon=basis_epsilon_r.interpolate(epsilon_r))
     B = bform.assemble(basis, epsilon=basis_epsilon_r.interpolate(epsilon_r))
+
+    # Add the SIBC term if provided
+    if surface_impedances is not None:
+        for boundary_name, Zs_value in surface_impedances.items():
+            basis_facet = FacetBasis(basis.mesh, basis.elem, facets=basis.mesh.boundaries[boundary_name])
+
+            # Assemble the boundary integral only on the specified boundary
+            A_sibc = sibc_form.assemble(basis_facet, Zs=Zs_value)
+
+            A += A_sibc
 
     if n_guess:
         sigma = sigma = k0**2 * n_guess**2
@@ -605,37 +623,11 @@ def compute_modes(
             solver=solver(k=num_modes, sigma=sigma),
         )
     else:
-        if not surface_impedances:
-            lams, xs = solve(
-                -A,
-                -B,
-                solver=solver(k=num_modes, sigma=sigma),
-            )
-        else:
-
-            @BilinearForm(dtype=complex)
-            def cform(e_t, e_z, v_t, v_z, w):
-                return e_z * v_z
-
-            basis_facet = FacetBasis(basis.mesh, basis.elem)
-            C = cform.assemble(basis_facet)
-
-            @BilinearForm(dtype=complex)
-            def dform(e_t, e_z, v_t, v_z, w):
-                return 0.01 * curl(e_t) * 1j * v_z
-
-            basis_facet = FacetBasis(
-                basis.mesh, basis.elem, facets=basis.mesh.boundaries["core___clad"]
-            )
-            D = dform.assemble(basis_facet)
-
-            I = scipy.sparse.identity(A.shape[0])
-            lams, xs = solve(
-                bmat([[-A, None], [C, I]]),
-                bmat([[-B, None], [D, I]]),
-                solver=solver(k=num_modes, sigma=sigma),
-            )
-            xs = xs[: A.shape[0]]
+        lams, xs = solve(
+            -A,
+            -B,
+            solver=solver(k=num_modes, sigma=sigma),
+        )
 
     xs[basis.split_indices()[1], :] /= 1j * np.sqrt(
         lams[np.newaxis, :] / k0**4
@@ -926,7 +918,9 @@ if __name__ == "__main__":
         num_modes=6,
         order=2,
         # radius=3 * scale,
-        surface_impedances={1: 2},
+        # surface_impedances={1: 2},
+        surface_impedances={"core___clad": 1e5},
+        # metallic_boundaries=False,
     )
     print(modes)
     print(modes[0].te_fraction)
