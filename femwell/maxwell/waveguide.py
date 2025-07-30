@@ -592,7 +592,13 @@ def compute_modes(
     # Surface Impedance BC
     @BilinearForm(dtype=complex)
     def sibc_form(e_t, e_z, v_t, v_z, w):
-        return (1j * k0 * Z0 / w.Zs) * dot(e_t, v_t)
+        # Normal vector to boundaries
+        normal_vector = w.n
+        # F_normal mean F_in_plane projected 
+        # since (F.t) = (n x F)_z
+        e_normal = cross(normal_vector, e_t)
+        v_normal = cross(normal_vector, v_t)
+        return (1j * k0 * Z0 / w.Zs) * e_normal * v_normal
 
     A = aform.assemble(basis, epsilon=basis_epsilon_r.interpolate(epsilon_r))
     B = bform.assemble(basis, epsilon=basis_epsilon_r.interpolate(epsilon_r))
