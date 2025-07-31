@@ -598,7 +598,8 @@ def compute_modes(
         # since (F.t) = (n x F)_z
         e_normal = cross(normal_vector, e_t)
         v_normal = cross(normal_vector, v_t)
-        return (1j * k0 * Z0 / w.Zs) * e_normal * v_normal
+        # 1 / k0**2 is originated from the full equation normalization
+        return (1j * k0 * Z0 / w.Zs) / k0**2 * e_normal * v_normal
 
     A = aform.assemble(basis, epsilon=basis_epsilon_r.interpolate(epsilon_r))
     B = bform.assemble(basis, epsilon=basis_epsilon_r.interpolate(epsilon_r))
